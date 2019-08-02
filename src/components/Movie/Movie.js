@@ -7,6 +7,7 @@ import FourColGrid from '../elements/FourColGrid/FourColGrid';
 import Actor from '../elements/Actor/Actor';
 import Spinner from '../elements/Spinner/Spinner';
 import './Movie.css';
+import { async } from 'q';
 
 class Movie extends Component {
   state = {
@@ -28,33 +29,30 @@ class Movie extends Component {
     }
   }
 
-  fetchItems = (endpoint) => {
-    fetch(endpoint)
-    .then(result => result.json())
-    .then(result => {
+  fetchItems = async endpoint => {
+    const { movieId } = this.props.match.params;
+    try {
+      const result = await (await fetch(endpoint)).json();
       if (result.status_code) {
+        // if no movie is found
         this.setState({ loading: false });
       } else {
-        this.setState({ movie: result }, () => {
-          // ... then fetch actors in the setState callback function
-          const endpoint = `${API_URL}movie/${this.props.match.params.movieId}/credits?api_key=${API_KEY}`;
-          fetch(endpoint)
-          .then(result => result.json())
-          .then(result => {
-            const directors = result.crew.filter( (member) => member.job === "Director");
-
-            this.setState({
-              actors: result.cast,
-              directors,
-              loading: false
-            }, () => {
-              localStorage.setItem(`${this.props.match.params.movieId}`, JSON.stringify(this.state));
-            })
-          })
+        this.setState({ movie: result })
+        const creditsEndpoint = `${API_URL}movie/${movieId}/credits?api_key=${API_KEY}`;
+        const creditsResult = await (await fetch(creditsEndpoint)).json();
+        const directors = creditsResult.crew.filter( (member) => member.job === "Director");
+        this.setState({
+          actors: creditsResult.cast,
+          directors,
+          loading: false
+        }, () => {
+          localStorage.setItem(`${this.props.match.params.movieId}`, JSON.stringify(this.state));
         })
       }
-    })
-    .catch(error => console.error('Error:', error))
+    }
+    catch (e) {
+      console.log(e);
+    }
   }
 
   render() {
